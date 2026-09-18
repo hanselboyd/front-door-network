@@ -110,7 +110,7 @@ export async function PATCH(req: Request) {
 
     const data = parsed.data;
 
-    let creatorId: string | undefined | null = undefined;
+    let creatorId: string | undefined = undefined;
     if (data.creatorName && data.creatorSlug) {
       const creator = await db.creator.upsert({
         where: { slug: data.creatorSlug },
@@ -120,45 +120,62 @@ export async function PATCH(req: Request) {
       creatorId = creator.id;
     }
 
-    let shelfOps: any = undefined;
-    if (data.shelfSlugs) {
-      const shelves = await db.shelf.findMany({ where: { slug: { in: data.shelfSlugs } } });
-      shelfOps = {
-        deleteMany: {},
-        create: shelves.map((s, index) => ({ shelfId: s.id, sortOrder: index * 10 })),
-      };
-    }
+    const shelves = data.shelfSlugs
+      ? await db.shelf.findMany({ where: { slug: { in: data.shelfSlugs } } })
+      : null;
 
-    const film = await db.film.update({
-      where: { id },
-      data: {
-        ...(data.title !== undefined ? { title: data.title } : {}),
-        ...(data.slug !== undefined ? { slug: data.slug } : {}),
-        ...(data.synopsis !== undefined ? { synopsis: data.synopsis } : {}),
-        ...(creatorId !== undefined ? { creatorId } : {}),
-        ...(data.genre !== undefined ? { genre: data.genre } : {}),
-        ...(data.releaseYear !== undefined ? { releaseYear: data.releaseYear } : {}),
-        ...(data.runtimeSeconds !== undefined ? { runtimeSeconds: data.runtimeSeconds } : {}),
-        ...(data.rating !== undefined ? { rating: data.rating } : {}),
-        ...(data.posterUrl !== undefined ? { posterUrl: data.posterUrl } : {}),
-        ...(data.landscapeUrl !== undefined ? { landscapeUrl: data.landscapeUrl } : {}),
-        ...(data.trailerUrl !== undefined ? { trailerUrl: data.trailerUrl } : {}),
-        ...(data.bunnyVideoId !== undefined ? { bunnyVideoId: data.bunnyVideoId } : {}),
-        ...(data.bunnyPlaybackUrl !== undefined ? { bunnyPlaybackUrl: data.bunnyPlaybackUrl } : {}),
-        ...(data.captionsUrl !== undefined ? { captionsUrl: data.captionsUrl } : {}),
-        ...(data.aiTools !== undefined ? { aiTools: data.aiTools } : {}),
-        ...(data.acnFilmId !== undefined ? { acnFilmId: data.acnFilmId } : {}),
-        ...(data.featured !== undefined ? { featured: data.featured } : {}),
-        ...(data.rokuEnabled !== undefined ? { rokuEnabled: data.rokuEnabled } : {}),
-        ...(data.publish !== undefined ? { status: data.publish ? "PUBLISHED" : "DRAFT" } : {}),
-        ...(shelfOps ? { shelfPlacements: shelfOps } : {}),
-      },
-      include: { creator: true, shelfPlacements: { include: { shelf: true }, orderBy: { sortOrder: "asc" } } },
+    const film = await db.$transaction(async (tx) => {
+      await tx.film.update({
+        where: { id },
+        data: {
+          ...(data.title !== undefined ? { title: data.title } : {}),
+          ...(data.slug !== undefined ? { slug: data.slug } : {}),
+          ...(data.synopsis !== undefined ? { synopsis: data.synopsis } : {}),
+          ...(creatorId !== undefined ? { creatorId } : {}),
+          ...(data.genre !== undefined ? { genre: data.genre } : {}),
+          ...(data.releaseYear !== undefined ? { releaseYear: data.releaseYear } : {}),
+          ...(data.runtimeSeconds !== undefined ? { runtimeSeconds: data.runtimeSeconds } : {}),
+          ...(data.rating !== undefined ? { rating: data.rating } : {}),
+          ...(data.posterUrl !== undefined ? { posterUrl: data.posterUrl } : {}),
+          ...(data.landscapeUrl !== undefined ? { landscapeUrl: data.landscapeUrl } : {}),
+          ...(data.trailerUrl !== undefined ? { trailerUrl: data.trailerUrl } : {}),
+          ...(data.bunnyVideoId !== undefined ? { bunnyVideoId: data.bunnyVideoId } : {}),
+          ...(data.bunnyPlaybackUrl !== undefined ? { bunnyPlaybackUrl: data.bunnyPlaybackUrl } : {}),
+          ...(data.captionsUrl !== undefined ? { captionsUrl: data.captionsUrl } : {}),
+          ...(data.aiTools !== undefined ? { aiTools: data.aiTools } : {}),
+          ...(data.acnFilmId !== undefined ? { acnFilmId: data.acnFilmId } : {}),
+          ...(data.featured !== undefined ? { featured: data.featured } : {}),
+          ...(data.rokuEnabled !== undefined ? { rokuEnabled: data.rokuEnabled } : {}),
+          ...(data.publish !== undefined ? { status: data.publish ? "PUBLISHED" : "DRAFT" } : {}),
+        },
+      });
+
+      if (shelves !== null) {
+        await tx.shelfFilm.deleteMany({ where: { filmId: id } });
+        if (shelves.length) {
+          await tx.shelfFilm.createMany({
+            data: shelves.map((s, index) => ({
+              filmId: id,
+              shelfId: s.id,
+              sortOrder: index * 10,
+            })),
+          });
+        }
+      }
+
+      return tx.film.findUniqueOrThrow({
+        where: { id },
+        include: {
+          creator: true,
+          shelfPlacements: { include: { shelf: true }, orderBy: { sortOrder: "asc" } },
+        },
+      });
     });
 
     return NextResponse.json(film);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to update film.";
+    console.error("PATCH /api/admin/films failed:", error);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
