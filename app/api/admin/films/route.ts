@@ -33,11 +33,16 @@ function authorized(req: Request) {
 
 export async function GET(req: Request) {
   if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const films = await db.film.findMany({
-    orderBy: { createdAt: "desc" },
-    include: { shelfPlacements: { include: { shelf: true }, orderBy: { sortOrder: "asc" } }, creator: true },
-  });
-  return NextResponse.json(films);
+  try {
+    const films = await db.film.findMany({
+      orderBy: { createdAt: "desc" },
+      include: { shelfPlacements: { include: { shelf: true }, orderBy: { sortOrder: "asc" } }, creator: true },
+    });
+    return NextResponse.json(films);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown admin films error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
 export async function POST(req: Request) {
