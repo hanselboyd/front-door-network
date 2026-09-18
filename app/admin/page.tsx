@@ -1,0 +1,3 @@
+export default function AdminPage(){
+  return <main className="admin"><div className="eyebrow">FRONT DOOR CONTROL ROOM</div><h1>Content Console Foundation</h1><p>This first build exposes a protected admin API for creating films. The visual film editor, Bunny upload workflow, scheduling, rights fields and shelf reordering are the next UI layer.</p><h2>Protected create-film endpoint</h2><pre className="code">POST /api/admin/films{"\n"}Header: x-admin-key: $ADMIN_API_KEY</pre><h2>Roku feeds</h2><pre className="code">GET /api/roku/home{"\n"}GET /api/roku/shelves/:slug{"\n"}GET /api/roku/films/:slug</pre></main>
+}
