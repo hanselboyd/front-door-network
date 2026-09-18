@@ -14,6 +14,7 @@ const FilmInput = z.object({
   rating: z.string().optional(),
   posterUrl: z.string().url().optional(),
   landscapeUrl: z.string().url().optional(),
+  trailerUrl: z.string().url().optional(),
   bunnyVideoId: z.string().optional(),
   bunnyPlaybackUrl: z.string().url().optional(),
   captionsUrl: z.string().url().optional(),
@@ -28,6 +29,15 @@ const FilmInput = z.object({
 function authorized(req: Request) {
   const key = req.headers.get("x-admin-key");
   return Boolean(process.env.ADMIN_API_KEY && key === process.env.ADMIN_API_KEY);
+}
+
+export async function GET(req: Request) {
+  if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const films = await db.film.findMany({
+    orderBy: { createdAt: "desc" },
+    include: { shelfPlacements: { include: { shelf: true }, orderBy: { sortOrder: "asc" } }, creator: true },
+  });
+  return NextResponse.json(films);
 }
 
 export async function POST(req: Request) {
@@ -60,6 +70,7 @@ export async function POST(req: Request) {
       rating: data.rating,
       posterUrl: data.posterUrl,
       landscapeUrl: data.landscapeUrl,
+      trailerUrl: data.trailerUrl,
       bunnyVideoId: data.bunnyVideoId,
       bunnyPlaybackUrl: data.bunnyPlaybackUrl,
       captionsUrl: data.captionsUrl,
@@ -68,9 +79,7 @@ export async function POST(req: Request) {
       featured: data.featured,
       rokuEnabled: data.rokuEnabled,
       status: data.publish ? "PUBLISHED" : "DRAFT",
-      shelfPlacements: {
-        create: shelves.map((s, index) => ({ shelfId: s.id, sortOrder: index * 10 })),
-      },
+      shelfPlacements: { create: shelves.map((s, index) => ({ shelfId: s.id, sortOrder: index * 10 })) },
     },
     include: { creator: true, shelfPlacements: { include: { shelf: true } } },
   });
