@@ -17,7 +17,9 @@ const FilmInput = z.object({
   trailerUrl: z.string().url().optional(),
   bunnyVideoId: z.string().optional(),
   bunnyPlaybackUrl: z.string().url().optional(),
-  captionsUrl: z.string().url().optional(),
+  captionsUrl: z.string().url().refine((value) => {
+    try { return new URL(value).pathname.toLowerCase().endsWith(".vtt"); } catch { return false; }
+  }, "Captions URL must point to a .vtt WebVTT file.").optional(),
   aiTools: z.array(z.string()).default([]),
   acnFilmId: z.string().optional(),
   shelfSlugs: z.array(z.string()).default([]),
@@ -95,6 +97,7 @@ export async function POST(req: Request) {
 
 const FilmUpdate = FilmInput.partial().extend({
   shelfSlugs: z.array(z.string()).optional(),
+  status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).optional(),
 });
 
 export async function PATCH(req: Request) {
@@ -146,7 +149,9 @@ export async function PATCH(req: Request) {
           ...(data.acnFilmId !== undefined ? { acnFilmId: data.acnFilmId } : {}),
           ...(data.featured !== undefined ? { featured: data.featured } : {}),
           ...(data.rokuEnabled !== undefined ? { rokuEnabled: data.rokuEnabled } : {}),
+          ...(data.status !== undefined ? { status: data.status } : {}),
           ...(data.publish !== undefined ? { status: data.publish ? "PUBLISHED" : "DRAFT" } : {}),
+          ...(data.status === "ARCHIVED" ? { rokuEnabled: false } : {}),
         },
       });
 
@@ -176,6 +181,24 @@ export async function PATCH(req: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to update film.";
     console.error("PATCH /api/admin/films failed:", error);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+
+export async function DELETE(req: Request) {
+  if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
+    const url = new URL(req.url);
+    const id = url.searchParams.get("id");
+    if (!id) return NextResponse.json({ error: "Film id is required." }, { status: 400 });
+
+    await db.film.delete({ where: { id } });
+    return NextResponse.json({ success: true, id });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to delete film.";
+    console.error("DELETE /api/admin/films failed:", error);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
