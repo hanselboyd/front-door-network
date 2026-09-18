@@ -6,10 +6,23 @@ type Film = {
   id: string;
   title: string;
   slug: string;
+  synopsis: string;
+  genre?: string | null;
+  releaseYear?: number | null;
+  runtimeSeconds?: number | null;
+  rating?: string | null;
+  posterUrl?: string | null;
+  landscapeUrl?: string | null;
+  trailerUrl?: string | null;
+  bunnyVideoId?: string | null;
+  bunnyPlaybackUrl?: string | null;
+  captionsUrl?: string | null;
+  aiTools: string[];
+  acnFilmId?: string | null;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
   rokuEnabled: boolean;
   featured: boolean;
-  bunnyPlaybackUrl?: string | null;
+  creator?: { name: string; slug: string } | null;
   shelfPlacements: { shelf: { name: string; slug: string } }[];
 };
 
@@ -34,6 +47,8 @@ export default function AdminPage() {
   const [bunnyStatus, setBunnyStatus] = useState("Not checked");
   const [selectedBunny, setSelectedBunny] = useState("");
   const [editingFilmId, setEditingFilmId] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState("");
+  const [importUrl, setImportUrl] = useState("");
 
   async function loadData(key = adminKey) {
     if (!key) return;
@@ -147,6 +162,109 @@ export default function AdminPage() {
     }
   }
 
+  async function uploadLocalVideo() {
+    const fileInput = document.querySelector<HTMLInputElement>('input[name="bunnyFile"]');
+    const titleInput = document.querySelector<HTMLInputElement>('input[name="title"]');
+    const file = fileInput?.files?.[0];
+    const title = titleInput?.value?.trim();
+
+    if (!file) {
+      setMessage("Choose a video file first.");
+      return;
+    }
+    if (!title) {
+      setMessage("Enter the film title before uploading.");
+      return;
+    }
+
+    setLoading(true);
+    setUploadProgress("Creating Bunny video record...");
+    try {
+      const createRes = await fetch("/api/admin/bunny/videos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-key": adminKey },
+        body: JSON.stringify({ title }),
+      });
+      const createText = await createRes.text();
+      let created: any = null;
+      try { created = createText ? JSON.parse(createText) : null; } catch {}
+      if (!createRes.ok || !created?.guid) {
+        throw new Error(created?.error || createText || "Unable to create Bunny video record.");
+      }
+
+      setUploadProgress(`Uploading ${file.name} to Bunny...`);
+      const uploadRes = await fetch(`/api/admin/bunny/upload/${created.guid}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "x-admin-key": adminKey,
+        },
+        body: file,
+      });
+      const uploadText = await uploadRes.text();
+      let uploaded: any = null;
+      try { uploaded = uploadText ? JSON.parse(uploadText) : null; } catch {}
+      if (!uploadRes.ok) {
+        throw new Error(uploaded?.error || uploadText || "Bunny upload failed.");
+      }
+
+      const idInput = document.querySelector<HTMLInputElement>('input[name="bunnyVideoId"]');
+      const playbackInput = document.querySelector<HTMLInputElement>('input[name="bunnyPlaybackUrl"]');
+      if (idInput) idInput.value = created.guid;
+      if (playbackInput && created.playbackUrl) playbackInput.value = created.playbackUrl;
+      setSelectedBunny(created.guid);
+      setMessage(`Uploaded "${file.name}" to Bunny. Encoding has started; Refresh Bunny to check progress.`);
+      setUploadProgress("Upload complete · encoding");
+      await loadBunny();
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Unable to upload video.");
+      setUploadProgress("");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function importRemoteVideo() {
+    const titleInput = document.querySelector<HTMLInputElement>('input[name="title"]');
+    const title = titleInput?.value?.trim();
+    if (!importUrl.trim()) {
+      setMessage("Enter a public video URL to import.");
+      return;
+    }
+
+    setLoading(true);
+    setUploadProgress("Sending source URL to Bunny...");
+    try {
+      const res = await fetch("/api/admin/bunny/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-key": adminKey },
+        body: JSON.stringify({ url: importUrl.trim(), title: title || undefined }),
+      });
+      const text = await res.text();
+      let body: any = null;
+      try { body = text ? JSON.parse(text) : null; } catch {}
+      if (!res.ok) throw new Error(body?.error || text || "Bunny URL import failed.");
+
+      if (body?.guid) {
+        const idInput = document.querySelector<HTMLInputElement>('input[name="bunnyVideoId"]');
+        const playbackInput = document.querySelector<HTMLInputElement>('input[name="bunnyPlaybackUrl"]');
+        if (idInput) idInput.value = body.guid;
+        if (playbackInput && body.playbackUrl) playbackInput.value = body.playbackUrl;
+        setSelectedBunny(body.guid);
+      }
+
+      setImportUrl("");
+      setMessage("Bunny accepted the remote source. Encoding has started.");
+      setUploadProgress("Import queued · encoding");
+      await loadBunny();
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Unable to import video.");
+      setUploadProgress("");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function applyBunnyVideo(guid: string) {
     setSelectedBunny(guid);
     const video = bunnyVideos.find(v => v.guid === guid);
@@ -168,6 +286,25 @@ export default function AdminPage() {
     };
     setVal("title", film.title);
     setVal("slug", film.slug);
+    setVal("synopsis", film.synopsis);
+    setVal("creatorName", film.creator?.name);
+    setVal("creatorSlug", film.creator?.slug);
+    setVal("genre", film.genre);
+    setVal("releaseYear", film.releaseYear);
+    setVal("runtimeMinutes", film.runtimeSeconds ? film.runtimeSeconds / 60 : "");
+    setVal("rating", film.rating);
+    setVal("acnFilmId", film.acnFilmId);
+    setVal("posterUrl", film.posterUrl);
+    setVal("landscapeUrl", film.landscapeUrl);
+    setVal("trailerUrl", film.trailerUrl);
+    setVal("bunnyVideoId", film.bunnyVideoId);
+    setVal("bunnyPlaybackUrl", film.bunnyPlaybackUrl);
+    const validCaptions = film.captionsUrl && new URL(film.captionsUrl).pathname.toLowerCase().endsWith(".vtt")
+      ? film.captionsUrl
+      : "";
+    setVal("captionsUrl", validCaptions);
+    setVal("aiTools", film.aiTools?.join(", "));
+    setSelectedBunny(film.bunnyVideoId || "");
 
     const firstShelf = film.shelfPlacements.map(p => p.shelf.slug);
     shelves.forEach(s => {
@@ -182,8 +319,41 @@ export default function AdminPage() {
     if (featured) featured.checked = film.featured;
     if (publish) publish.checked = film.status === "PUBLISHED";
 
-    setMessage(`Editing "${film.title}". Select the Bunny asset, update any fields, then save.`);
+    setMessage(film.captionsUrl && !validCaptions
+      ? `Editing "${film.title}". Invalid legacy captions were cleared; add a .vtt file if captions are available.`
+      : `Editing "${film.title}". Update any fields, then save.`);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function changeFilmState(film: Film, action: "unpublish" | "archive" | "delete") {
+    if (action === "delete" && !window.confirm(`Permanently delete "${film.title}" from Front Door? This does not delete the Bunny video.`)) return;
+
+    setLoading(true);
+    setMessage("");
+    try {
+      const res = await fetch(`/api/admin/films?id=${film.id}`, {
+        method: action === "delete" ? "DELETE" : "PATCH",
+        headers: { "Content-Type": "application/json", "x-admin-key": adminKey },
+        ...(action === "unpublish" ? { body: JSON.stringify({ publish: false, rokuEnabled: false }) } : {}),
+        ...(action === "archive" ? { body: JSON.stringify({ status: "ARCHIVED", rokuEnabled: false }) } : {}),
+      });
+      const text = await res.text();
+      let body: any = null;
+      try { body = text ? JSON.parse(text) : null; } catch {}
+      if (!res.ok) throw new Error(body?.error || text || `Unable to ${action} film.`);
+
+      setMessage(action === "delete"
+        ? `Deleted "${film.title}" from Front Door.`
+        : action === "archive"
+          ? `Archived "${film.title}". It is no longer Roku-enabled.`
+          : `Unpublished "${film.title}" from Roku.`);
+      if (editingFilmId === film.id) setEditingFilmId(null);
+      await loadData();
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : `Unable to ${action} film.`);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function submitFilm(e: FormEvent<HTMLFormElement>) {
@@ -296,8 +466,23 @@ export default function AdminPage() {
           <div className="panelHead"><h3>Bunny Stream</h3><span>{bunnyStatus}</span></div>
           <div className="bunnyActions">
             <button type="button" onClick={() => loadBunny()} disabled={!adminKey || loading}>Refresh Bunny</button>
-            <button type="button" onClick={createBunnyVideo} disabled={!adminKey || loading}>Create Bunny Video</button>
+            <button type="button" onClick={createBunnyVideo} disabled={!adminKey || loading}>Create Empty Record</button>
           </div>
+
+          <div className="bunnyUploadBox">
+            <label>Upload Video File
+              <input name="bunnyFile" type="file" accept="video/*,.mp4,.mov,.m4v,.webm" />
+            </label>
+            <button type="button" onClick={uploadLocalVideo} disabled={!adminKey || loading}>Upload to Bunny</button>
+          </div>
+
+          <div className="bunnyImportBox">
+            <label>Import Video From Public URL
+              <input value={importUrl} onChange={e => setImportUrl(e.target.value)} type="url" placeholder="https://example.com/master.mp4" />
+            </label>
+            <button type="button" onClick={importRemoteVideo} disabled={!adminKey || loading || !importUrl}>Import URL</button>
+          </div>
+          {uploadProgress && <p className="bunnyProgress">{uploadProgress}</p>}
           <label>Existing Bunny Video
             <select value={selectedBunny} onChange={e => applyBunnyVideo(e.target.value)}>
               <option value="">Select a Bunny video...</option>
@@ -309,15 +494,15 @@ export default function AdminPage() {
           <p className="bunnyNote">Bunny credentials stay server-side. Selecting a video fills the Bunny ID, HLS playback URL, and thumbnail when available.</p>
         </section>
 
-        <label>Poster URL<input name="posterUrl" type="url" placeholder="https://..." /></label>
-        <label>Landscape Artwork URL<input name="landscapeUrl" type="url" placeholder="https://..." /></label>
+        <label>Poster URL<input name="posterUrl" type="url" placeholder="Portrait poster artwork URL" /><span className="fieldNote">Use dedicated portrait key art when available.</span></label>
+        <label>Landscape Artwork URL<input name="landscapeUrl" type="url" placeholder="16:9 hero artwork URL" /><span className="fieldNote">Use separate 16:9 artwork for Roku hero presentation.</span></label>
         <label>Trailer URL<input name="trailerUrl" type="url" placeholder="https://..." /></label>
 
         <div className="formTwo">
           <label>Bunny Video ID<input name="bunnyVideoId" /></label>
           <label>Bunny Playback URL<input name="bunnyPlaybackUrl" type="url" placeholder="https://...m3u8" /></label>
         </div>
-        <label>Captions URL<input name="captionsUrl" type="url" placeholder="https://...vtt" /></label>
+        <label>Captions URL<input name="captionsUrl" type="url" placeholder="https://.../captions.vtt" /><span className="fieldNote">WebVTT (.vtt) only. Leave blank when captions are unavailable.</span></label>
         <label>AI Tools<input name="aiTools" placeholder="Runway, Veo, Kling" /></label>
 
         <fieldset>
@@ -355,6 +540,9 @@ export default function AdminPage() {
             </div>
             <div className="filmActions">
               <button type="button" onClick={() => editFilm(f)}>Edit</button>
+              {f.status === "PUBLISHED" && <button type="button" onClick={() => changeFilmState(f, "unpublish")}>Unpublish</button>}
+              {f.status !== "ARCHIVED" && <button type="button" onClick={() => changeFilmState(f, "archive")}>Archive</button>}
+              <button type="button" className="dangerAction" onClick={() => changeFilmState(f, "delete")}>Delete</button>
               <a href={`/api/roku/films/${f.slug}`} target="_blank">Feed ↗</a>
             </div>
           </article>)}
