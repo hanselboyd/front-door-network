@@ -14,3 +14,12 @@
 .filmActions{min-width:94px}
 .filmActions .dangerAction{color:#ff8c8c!important;border-color:#5b2828!important}
 @media(max-width:720px){.bunnyUploadBox,.bunnyImportBox{grid-template-columns:1fr}.filmActions{align-items:stretch}}
+
+.bunnyCatalog{margin-top:16px;padding-top:14px;border-top:1px solid #252525}
+.bunnyCatalogRow{display:flex;justify-content:space-between;gap:14px;align-items:center;padding:11px 0;border-top:1px solid #1f1f1f}
+.bunnyCatalogRow:first-of-type{border-top:0}
+.bunnyCatalogRow div{min-width:0}
+.bunnyCatalogRow strong{display:block;font-size:13px}
+.bunnyCatalogRow small{display:block;margin-top:4px;color:#777;font-size:11px}
+.bunnyCatalogRow button{white-space:nowrap}
+@media(max-width:720px){.bunnyCatalogRow{align-items:stretch;flex-direction:column}.bunnyCatalogRow button{width:100%}}
