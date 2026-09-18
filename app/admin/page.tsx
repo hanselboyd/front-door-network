@@ -229,7 +229,7 @@ export default function AdminPage() {
       try { body = responseText ? JSON.parse(responseText) : null; } catch {}
 
       if (!res.ok) {
-        const detail = body?.error || responseText || `Unable to create film (HTTP ${res.status}).`;
+        const detail = body?.error || responseText || `${editingFilmId ? "Unable to update film" : "Unable to create film"} (HTTP ${res.status}).`;
         throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
       }
 
@@ -240,7 +240,7 @@ export default function AdminPage() {
       setSelectedBunny("");
       await loadData();
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Unable to create film.");
+      setMessage(err instanceof Error ? err.message : (editingFilmId ? "Unable to update film." : "Unable to create film."));
     } finally {
       setLoading(false);
     }
