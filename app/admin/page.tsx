@@ -265,6 +265,64 @@ export default function AdminPage() {
     }
   }
 
+  async function importBunnyToFrontDoor(video: BunnyVideo) {
+    if (!video.guid) return;
+
+    const already = films.find(f => f.bunnyVideoId === video.guid);
+    if (already) {
+      setMessage(`"${video.title}" is already in Front Door as "${already.title}".`);
+      return;
+    }
+
+    const baseSlug = (video.title || "bunny-film")
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "bunny-film";
+    const slugTaken = films.some(f => f.slug === baseSlug);
+    const slug = slugTaken ? `${baseSlug}-${video.guid.slice(0, 6)}` : baseSlug;
+
+    setLoading(true);
+    setMessage("");
+    try {
+      const payload = {
+        title: video.title || "Untitled Bunny Video",
+        slug,
+        synopsis: "Imported from Bunny Stream. Add the final synopsis before publishing.",
+        runtimeSeconds: video.length && video.length > 0 ? Math.round(video.length) : undefined,
+        posterUrl: video.thumbnailUrl || undefined,
+        bunnyVideoId: video.guid,
+        bunnyPlaybackUrl: video.playbackUrl || undefined,
+        aiTools: [],
+        shelfSlugs: [],
+        featured: false,
+        rokuEnabled: false,
+        publish: false,
+      };
+
+      const res = await fetch("/api/admin/films", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-key": adminKey },
+        body: JSON.stringify(payload),
+      });
+
+      const text = await res.text();
+      let body: any = null;
+      try { body = text ? JSON.parse(text) : null; } catch {}
+      if (!res.ok) {
+        const detail = body?.error || text || `Unable to import "${video.title}" into Front Door.`;
+        throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+      }
+
+      setMessage(`Imported "${video.title}" into Front Door as a DRAFT. Edit it to add metadata, artwork, shelf, and publish settings.`);
+      await loadData();
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Unable to import Bunny video into Front Door.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function applyBunnyVideo(guid: string) {
     setSelectedBunny(guid);
     const video = bunnyVideos.find(v => v.guid === guid);
@@ -492,6 +550,24 @@ export default function AdminPage() {
             </select>
           </label>
           <p className="bunnyNote">Bunny credentials stay server-side. Selecting a video fills the Bunny ID, HLS playback URL, and thumbnail when available.</p>
+
+          <div className="bunnyCatalog">
+            <div className="panelHead"><h3>Bunny Catalog</h3><span>{bunnyVideos.length} videos</span></div>
+            {bunnyVideos.length === 0
+              ? <p className="bunnyNote">Refresh Bunny to load videos.</p>
+              : bunnyVideos.map(v => {
+                  const imported = films.find(f => f.bunnyVideoId === v.guid);
+                  return <div className="bunnyCatalogRow" key={v.guid}>
+                    <div>
+                      <strong>{v.title}</strong>
+                      <small>{typeof v.encodeProgress === "number" ? `${v.encodeProgress}% encoded` : "Encoding status unavailable"}{v.length ? ` · ${Math.round(v.length)} sec` : ""}</small>
+                    </div>
+                    {imported
+                      ? <button type="button" disabled>In Front Door</button>
+                      : <button type="button" onClick={() => importBunnyToFrontDoor(v)} disabled={!adminKey || loading}>Import to Front Door</button>}
+                  </div>;
+                })}
+          </div>
         </section>
 
         <label>Poster URL<input name="posterUrl" type="url" placeholder="Portrait poster artwork URL" /><span className="fieldNote">Use dedicated portrait key art when available.</span></label>
