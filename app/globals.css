@@ -5,3 +5,12 @@
 .bunnyBox{border:1px solid #2b2b2b;background:#080808;padding:16px;margin:4px 0}.bunnyBox h3{margin:0;font-size:18px}.bunnyActions{display:flex;gap:10px;margin-bottom:14px}.bunnyBox select{width:100%;margin-top:7px;background:#050505;border:1px solid #2b2b2b;color:#fff;padding:12px}.bunnyNote{font-size:12px;color:#777;line-height:1.5;margin:10px 0 0}
 
 .filmActions{display:flex;flex-direction:column;gap:8px;align-items:flex-end}.filmActions button{background:#151515!important;color:var(--accent)!important;border:1px solid #333!important;padding:7px 10px!important;font-size:11px}.saveRow{display:flex;gap:10px}.secondaryAdmin{background:#151515!important;color:#ddd!important;border:1px solid #333!important}
+
+.bunnyUploadBox,.bunnyImportBox{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;margin-top:12px;padding:12px;border:1px solid #252525;background:#0b0b0b}
+.bunnyUploadBox label,.bunnyImportBox label{margin:0}
+.bunnyUploadBox button,.bunnyImportBox button{min-height:42px;white-space:nowrap}
+.bunnyProgress{margin:10px 0 0;font-size:12px;color:var(--accent)}
+.fieldNote{display:block;margin-top:6px;font-size:11px;color:#777;font-weight:400}
+.filmActions{min-width:94px}
+.filmActions .dangerAction{color:#ff8c8c!important;border-color:#5b2828!important}
+@media(max-width:720px){.bunnyUploadBox,.bunnyImportBox{grid-template-columns:1fr}.filmActions{align-items:stretch}}
