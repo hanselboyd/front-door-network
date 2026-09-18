@@ -1,3 +1,196 @@
-export default function AdminPage(){
-  return <main className="admin"><div className="eyebrow">FRONT DOOR CONTROL ROOM</div><h1>Content Console Foundation</h1><p>This first build exposes a protected admin API for creating films. The visual film editor, Bunny upload workflow, scheduling, rights fields and shelf reordering are the next UI layer.</p><h2>Protected create-film endpoint</h2><pre className="code">POST /api/admin/films{"\n"}Header: x-admin-key: $ADMIN_API_KEY</pre><h2>Roku feeds</h2><pre className="code">GET /api/roku/home{"\n"}GET /api/roku/shelves/:slug{"\n"}GET /api/roku/films/:slug</pre></main>
+"use client";
+
+import { FormEvent, useEffect, useMemo, useState } from "react";
+
+type Film = {
+  id: string;
+  title: string;
+  slug: string;
+  status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+  rokuEnabled: boolean;
+  featured: boolean;
+  bunnyPlaybackUrl?: string | null;
+  shelfPlacements: { shelf: { name: string; slug: string } }[];
+};
+
+type Shelf = { id: string; name: string; slug: string };
+
+export default function AdminPage() {
+  const [adminKey, setAdminKey] = useState("");
+  const [films, setFilms] = useState<Film[]>([]);
+  const [shelves, setShelves] = useState<Shelf[]>([]);
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function loadData(key = adminKey) {
+    if (!key) return;
+    setLoading(true);
+    setMessage("");
+    try {
+      const [filmsRes, shelvesRes] = await Promise.all([
+        fetch("/api/admin/films", { headers: { "x-admin-key": key } }),
+        fetch("/api/admin/shelves", { headers: { "x-admin-key": key } }),
+      ]);
+      if (!filmsRes.ok || !shelvesRes.ok) throw new Error("Admin key rejected or API unavailable.");
+      setFilms(await filmsRes.json());
+      setShelves(await shelvesRes.json());
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Unable to load Control Room.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("frontdoor-admin-key");
+    if (saved) {
+      setAdminKey(saved);
+      loadData(saved);
+    }
+  }, []);
+
+  const publishedCount = useMemo(() => films.filter(f => f.status === "PUBLISHED" && f.rokuEnabled).length, [films]);
+
+  async function submitFilm(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading(true);
+    setMessage("");
+    const form = new FormData(e.currentTarget);
+    const shelfSlugs = shelves.filter(s => form.get(`shelf-${s.slug}`) === "on").map(s => s.slug);
+    const payload = {
+      title: String(form.get("title") || ""),
+      slug: String(form.get("slug") || ""),
+      synopsis: String(form.get("synopsis") || ""),
+      creatorName: String(form.get("creatorName") || "") || undefined,
+      creatorSlug: String(form.get("creatorSlug") || "") || undefined,
+      genre: String(form.get("genre") || "") || undefined,
+      releaseYear: form.get("releaseYear") ? Number(form.get("releaseYear")) : undefined,
+      runtimeSeconds: form.get("runtimeMinutes") ? Math.round(Number(form.get("runtimeMinutes")) * 60) : undefined,
+      rating: String(form.get("rating") || "") || undefined,
+      posterUrl: String(form.get("posterUrl") || "") || undefined,
+      landscapeUrl: String(form.get("landscapeUrl") || "") || undefined,
+      trailerUrl: String(form.get("trailerUrl") || "") || undefined,
+      bunnyVideoId: String(form.get("bunnyVideoId") || "") || undefined,
+      bunnyPlaybackUrl: String(form.get("bunnyPlaybackUrl") || "") || undefined,
+      captionsUrl: String(form.get("captionsUrl") || "") || undefined,
+      aiTools: String(form.get("aiTools") || "").split(",").map(v => v.trim()).filter(Boolean),
+      acnFilmId: String(form.get("acnFilmId") || "") || undefined,
+      shelfSlugs,
+      featured: form.get("featured") === "on",
+      rokuEnabled: form.get("rokuEnabled") === "on",
+      publish: form.get("publish") === "on",
+    };
+
+    try {
+      window.localStorage.setItem("frontdoor-admin-key", adminKey);
+      const res = await fetch("/api/admin/films", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-key": adminKey },
+        body: JSON.stringify(payload),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error ? JSON.stringify(body.error) : "Unable to create film.");
+      setMessage(`Created "${body.title}" successfully.`);
+      e.currentTarget.reset();
+      await loadData();
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Unable to create film.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return <main className="controlRoom">
+    <header className="adminHero">
+      <div>
+        <div className="eyebrow">FRONT DOOR CONTROL ROOM</div>
+        <h1>Program the network.</h1>
+        <p>Add titles, connect Bunny media, assign shelves, and publish directly into the Roku feed.</p>
+      </div>
+      <div className="adminStats">
+        <div><span>Films</span><strong>{films.length}</strong></div>
+        <div><span>Roku Live</span><strong>{publishedCount}</strong></div>
+        <div><span>Shelves</span><strong>{shelves.length || 6}</strong></div>
+      </div>
+    </header>
+
+    <section className="adminPanel">
+      <div className="panelHead"><h2>Access</h2><span>Stored only in this browser</span></div>
+      <div className="keyRow">
+        <input type="password" value={adminKey} onChange={e => setAdminKey(e.target.value)} placeholder="ADMIN_API_KEY" />
+        <button onClick={() => { window.localStorage.setItem("frontdoor-admin-key", adminKey); loadData(); }} disabled={!adminKey || loading}>Connect</button>
+      </div>
+      {message && <div className="adminMessage">{message}</div>}
+    </section>
+
+    <section className="adminGrid">
+      <form className="adminPanel filmForm" onSubmit={submitFilm}>
+        <div className="panelHead"><h2>Add Film</h2><span>Draft or publish</span></div>
+
+        <label>Title<input name="title" required /></label>
+        <label>Slug<input name="slug" required placeholder="my-ai-film" pattern="[a-z0-9-]+" /></label>
+        <label>Synopsis<textarea name="synopsis" required rows={4} /></label>
+
+        <div className="formTwo">
+          <label>Creator Name<input name="creatorName" /></label>
+          <label>Creator Slug<input name="creatorSlug" placeholder="creator-name" /></label>
+        </div>
+        <div className="formThree">
+          <label>Genre<input name="genre" /></label>
+          <label>Release Year<input name="releaseYear" type="number" min="1900" max="2100" /></label>
+          <label>Runtime (minutes)<input name="runtimeMinutes" type="number" min="1" step="0.1" /></label>
+        </div>
+
+        <div className="formTwo">
+          <label>Rating<input name="rating" placeholder="NR, PG-13..." /></label>
+          <label>ACN Film ID<input name="acnFilmId" /></label>
+        </div>
+
+        <label>Poster URL<input name="posterUrl" type="url" placeholder="https://..." /></label>
+        <label>Landscape Artwork URL<input name="landscapeUrl" type="url" placeholder="https://..." /></label>
+        <label>Trailer URL<input name="trailerUrl" type="url" placeholder="https://..." /></label>
+
+        <div className="formTwo">
+          <label>Bunny Video ID<input name="bunnyVideoId" /></label>
+          <label>Bunny Playback URL<input name="bunnyPlaybackUrl" type="url" placeholder="https://...m3u8" /></label>
+        </div>
+        <label>Captions URL<input name="captionsUrl" type="url" placeholder="https://...vtt" /></label>
+        <label>AI Tools<input name="aiTools" placeholder="Runway, Veo, Kling" /></label>
+
+        <fieldset>
+          <legend>Shelf Assignment</legend>
+          <div className="shelfChecks">
+            {shelves.map(s => <label className="check" key={s.slug}><input type="checkbox" name={`shelf-${s.slug}`} /> {s.name}</label>)}
+          </div>
+        </fieldset>
+
+        <div className="toggleRow">
+          <label className="check"><input type="checkbox" name="featured" /> Featured</label>
+          <label className="check"><input type="checkbox" name="rokuEnabled" /> Roku Enabled</label>
+          <label className="check"><input type="checkbox" name="publish" /> Publish Now</label>
+        </div>
+
+        <button className="primaryAdmin" disabled={!adminKey || loading}>{loading ? "Working..." : "Save Film"}</button>
+      </form>
+
+      <section className="adminPanel">
+        <div className="panelHead"><h2>Library</h2><span>{films.length} titles</span></div>
+        <div className="filmList">
+          {films.length === 0 ? <p className="mutedAdmin">No films yet. Add your first title on the left.</p> : films.map(f => <article className="filmRow" key={f.id}>
+            <div>
+              <strong>{f.title}</strong>
+              <small>{f.slug}</small>
+              <div className="badges">
+                <span>{f.status}</span>
+                {f.rokuEnabled && <span>ROKU</span>}
+                {f.featured && <span>FEATURED</span>}
+              </div>
+              <p>{f.shelfPlacements.map(p => p.shelf.name).join(" · ") || "No shelf assigned"}</p>
+            </div>
+            <a href={`/api/roku/films/${f.slug}`} target="_blank">Feed ↗</a>
+          </article>)}
+        </div>
+      </section>
+    </section>
+  </main>;
 }
