@@ -14,6 +14,15 @@ type Film = {
 };
 
 type Shelf = { id: string; name: string; slug: string };
+type BunnyVideo = {
+  guid: string;
+  title: string;
+  status?: number;
+  encodeProgress?: number;
+  length?: number;
+  playbackUrl?: string | null;
+  thumbnailUrl?: string | null;
+};
 
 export default function AdminPage() {
   const [adminKey, setAdminKey] = useState("");
@@ -21,6 +30,9 @@ export default function AdminPage() {
   const [shelves, setShelves] = useState<Shelf[]>([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [bunnyVideos, setBunnyVideos] = useState<BunnyVideo[]>([]);
+  const [bunnyStatus, setBunnyStatus] = useState("Not checked");
+  const [selectedBunny, setSelectedBunny] = useState("");
 
   async function loadData(key = adminKey) {
     if (!key) return;
@@ -72,6 +84,66 @@ export default function AdminPage() {
   }, []);
 
   const publishedCount = useMemo(() => films.filter(f => f.status === "PUBLISHED" && f.rokuEnabled).length, [films]);
+
+  async function loadBunny(key = adminKey) {
+    if (!key) return;
+    setBunnyStatus("Checking...");
+    try {
+      const res = await fetch("/api/admin/bunny/videos", {
+        headers: { "x-admin-key": key },
+        cache: "no-store",
+      });
+      const text = await res.text();
+      let body: any = null;
+      try { body = text ? JSON.parse(text) : null; } catch {}
+      if (!res.ok) throw new Error(body?.error || text || `Bunny API failed (HTTP ${res.status})`);
+      setBunnyVideos(Array.isArray(body?.items) ? body.items : []);
+      setBunnyStatus(`Connected · ${body?.count ?? 0} videos`);
+    } catch (err) {
+      setBunnyStatus(err instanceof Error ? err.message : "Bunny connection failed.");
+    }
+  }
+
+  async function createBunnyVideo() {
+    const titleInput = document.querySelector<HTMLInputElement>('input[name="title"]');
+    const title = titleInput?.value?.trim();
+    if (!title) {
+      setMessage("Enter a film title first, then create the Bunny video record.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/bunny/videos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-key": adminKey },
+        body: JSON.stringify({ title }),
+      });
+      const text = await res.text();
+      let body: any = null;
+      try { body = text ? JSON.parse(text) : null; } catch {}
+      if (!res.ok) throw new Error(body?.error || text || "Unable to create Bunny video.");
+      setMessage(`Bunny video record created for "${title}". Upload the media file in Bunny, then refresh Bunny videos here.`);
+      await loadBunny();
+      setSelectedBunny(body.guid || "");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Unable to create Bunny video.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function applyBunnyVideo(guid: string) {
+    setSelectedBunny(guid);
+    const video = bunnyVideos.find(v => v.guid === guid);
+    if (!video) return;
+    const idInput = document.querySelector<HTMLInputElement>('input[name="bunnyVideoId"]');
+    const playbackInput = document.querySelector<HTMLInputElement>('input[name="bunnyPlaybackUrl"]');
+    const posterInput = document.querySelector<HTMLInputElement>('input[name="posterUrl"]');
+    if (idInput) idInput.value = video.guid;
+    if (playbackInput && video.playbackUrl) playbackInput.value = video.playbackUrl;
+    if (posterInput && video.thumbnailUrl && !posterInput.value) posterInput.value = video.thumbnailUrl;
+    setMessage(`Applied Bunny asset "${video.title}".`);
+  }
 
   async function submitFilm(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -148,7 +220,7 @@ export default function AdminPage() {
       <div className="panelHead"><h2>Access</h2><span>Stored only in this browser</span></div>
       <div className="keyRow">
         <input type="password" value={adminKey} onChange={e => setAdminKey(e.target.value)} placeholder="ADMIN_API_KEY" />
-        <button onClick={() => { window.localStorage.setItem("frontdoor-admin-key", adminKey); loadData(); }} disabled={!adminKey || loading}>Connect</button>
+        <button onClick={() => { window.localStorage.setItem("frontdoor-admin-key", adminKey); loadData(); loadBunny(); }} disabled={!adminKey || loading}>Connect</button>
       </div>
       {message && <div className="adminMessage">{message}</div>}
     </section>
@@ -175,6 +247,23 @@ export default function AdminPage() {
           <label>Rating<input name="rating" placeholder="NR, PG-13..." /></label>
           <label>ACN Film ID<input name="acnFilmId" /></label>
         </div>
+
+        <section className="bunnyBox">
+          <div className="panelHead"><h3>Bunny Stream</h3><span>{bunnyStatus}</span></div>
+          <div className="bunnyActions">
+            <button type="button" onClick={() => loadBunny()} disabled={!adminKey || loading}>Refresh Bunny</button>
+            <button type="button" onClick={createBunnyVideo} disabled={!adminKey || loading}>Create Bunny Video</button>
+          </div>
+          <label>Existing Bunny Video
+            <select value={selectedBunny} onChange={e => applyBunnyVideo(e.target.value)}>
+              <option value="">Select a Bunny video...</option>
+              {bunnyVideos.map(v => <option key={v.guid} value={v.guid}>
+                {v.title} {typeof v.encodeProgress === "number" ? `· ${v.encodeProgress}%` : ""}
+              </option>)}
+            </select>
+          </label>
+          <p className="bunnyNote">Bunny credentials stay server-side. Selecting a video fills the Bunny ID, HLS playback URL, and thumbnail when available.</p>
+        </section>
 
         <label>Poster URL<input name="posterUrl" type="url" placeholder="https://..." /></label>
         <label>Landscape Artwork URL<input name="landscapeUrl" type="url" placeholder="https://..." /></label>
