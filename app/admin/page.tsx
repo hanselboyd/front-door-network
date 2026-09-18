@@ -188,6 +188,7 @@ export default function AdminPage() {
 
   async function submitFilm(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const formElement = e.currentTarget;
     setLoading(true);
     setMessage("");
     const form = new FormData(e.currentTarget);
@@ -236,7 +237,7 @@ export default function AdminPage() {
       setMessage(body?.title
         ? editingFilmId ? `Updated "${body.title}" successfully.` : `Created "${body.title}" successfully.`
         : "Film saved successfully.");
-      e.currentTarget.reset();
+      formElement.reset();
       setEditingFilmId(null);
       setSelectedBunny("");
       await loadData();
