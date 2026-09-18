@@ -28,12 +28,34 @@ export default function AdminPage() {
     setMessage("");
     try {
       const [filmsRes, shelvesRes] = await Promise.all([
-        fetch("/api/admin/films", { headers: { "x-admin-key": key } }),
-        fetch("/api/admin/shelves", { headers: { "x-admin-key": key } }),
+        fetch("/api/admin/films", { headers: { "x-admin-key": key }, cache: "no-store" }),
+        fetch("/api/admin/shelves", { headers: { "x-admin-key": key }, cache: "no-store" }),
       ]);
-      if (!filmsRes.ok || !shelvesRes.ok) throw new Error("Admin key rejected or API unavailable.");
-      setFilms(await filmsRes.json());
-      setShelves(await shelvesRes.json());
+
+      const filmsText = await filmsRes.text();
+      const shelvesText = await shelvesRes.text();
+
+      let filmsBody: any = null;
+      let shelvesBody: any = null;
+      try { filmsBody = filmsText ? JSON.parse(filmsText) : null; } catch {}
+      try { shelvesBody = shelvesText ? JSON.parse(shelvesText) : null; } catch {}
+
+      if (!filmsRes.ok || !shelvesRes.ok) {
+        const detail =
+          filmsBody?.error ||
+          shelvesBody?.error ||
+          filmsText ||
+          shelvesText ||
+          `Admin API failed (films ${filmsRes.status}, shelves ${shelvesRes.status})`;
+        throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+      }
+
+      if (!Array.isArray(filmsBody) || !Array.isArray(shelvesBody)) {
+        throw new Error("Admin API returned an unexpected response.");
+      }
+
+      setFilms(filmsBody);
+      setShelves(shelvesBody);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Unable to load Control Room.");
     } finally {
