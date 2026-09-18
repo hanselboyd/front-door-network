@@ -33,6 +33,7 @@ export default function AdminPage() {
   const [bunnyVideos, setBunnyVideos] = useState<BunnyVideo[]>([]);
   const [bunnyStatus, setBunnyStatus] = useState("Not checked");
   const [selectedBunny, setSelectedBunny] = useState("");
+  const [editingFilmId, setEditingFilmId] = useState<string | null>(null);
 
   async function loadData(key = adminKey) {
     if (!key) return;
@@ -159,6 +160,32 @@ export default function AdminPage() {
     setMessage(`Applied Bunny asset "${video.title}".`);
   }
 
+  function editFilm(film: Film) {
+    setEditingFilmId(film.id);
+    const setVal = (name: string, value: string | number | null | undefined) => {
+      const el = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${name}"]`);
+      if (el) el.value = value == null ? "" : String(value);
+    };
+    setVal("title", film.title);
+    setVal("slug", film.slug);
+
+    const firstShelf = film.shelfPlacements.map(p => p.shelf.slug);
+    shelves.forEach(s => {
+      const box = document.querySelector<HTMLInputElement>(`input[name="shelf-${s.slug}"]`);
+      if (box) box.checked = firstShelf.includes(s.slug);
+    });
+
+    const roku = document.querySelector<HTMLInputElement>('input[name="rokuEnabled"]');
+    const featured = document.querySelector<HTMLInputElement>('input[name="featured"]');
+    const publish = document.querySelector<HTMLInputElement>('input[name="publish"]');
+    if (roku) roku.checked = film.rokuEnabled;
+    if (featured) featured.checked = film.featured;
+    if (publish) publish.checked = film.status === "PUBLISHED";
+
+    setMessage(`Editing "${film.title}". Select the Bunny asset, update any fields, then save.`);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   async function submitFilm(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
@@ -191,8 +218,8 @@ export default function AdminPage() {
 
     try {
       window.localStorage.setItem("frontdoor-admin-key", adminKey);
-      const res = await fetch("/api/admin/films", {
-        method: "POST",
+      const res = await fetch(editingFilmId ? `/api/admin/films?id=${editingFilmId}` : "/api/admin/films", {
+        method: editingFilmId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json", "x-admin-key": adminKey },
         body: JSON.stringify(payload),
       });
@@ -206,8 +233,12 @@ export default function AdminPage() {
         throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
       }
 
-      setMessage(body?.title ? `Created "${body.title}" successfully.` : "Film saved successfully.");
+      setMessage(body?.title
+        ? editingFilmId ? `Updated "${body.title}" successfully.` : `Created "${body.title}" successfully.`
+        : "Film saved successfully.");
       e.currentTarget.reset();
+      setEditingFilmId(null);
+      setSelectedBunny("");
       await loadData();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Unable to create film.");
@@ -241,7 +272,7 @@ export default function AdminPage() {
 
     <section className="adminGrid">
       <form className="adminPanel filmForm" onSubmit={submitFilm}>
-        <div className="panelHead"><h2>Add Film</h2><span>Draft or publish</span></div>
+        <div className="panelHead"><h2>{editingFilmId ? "Edit Film" : "Add Film"}</h2><span>{editingFilmId ? "Update existing title" : "Draft or publish"}</span></div>
 
         <label>Title<input name="title" required /></label>
         <label>Slug<input name="slug" required placeholder="my-ai-film" pattern="[a-z0-9-]+" /></label>
@@ -303,7 +334,10 @@ export default function AdminPage() {
           <label className="check"><input type="checkbox" name="publish" /> Publish Now</label>
         </div>
 
-        <button className="primaryAdmin" disabled={!adminKey || loading}>{loading ? "Working..." : "Save Film"}</button>
+        <div className="saveRow">
+          <button className="primaryAdmin" disabled={!adminKey || loading}>{loading ? "Working..." : editingFilmId ? "Update Film" : "Save Film"}</button>
+          {editingFilmId && <button type="button" className="secondaryAdmin" onClick={() => { setEditingFilmId(null); setSelectedBunny(""); setMessage("Edit cancelled."); }}>Cancel Edit</button>}
+        </div>
       </form>
 
       <section className="adminPanel">
@@ -320,7 +354,10 @@ export default function AdminPage() {
               </div>
               <p>{f.shelfPlacements.map(p => p.shelf.name).join(" · ") || "No shelf assigned"}</p>
             </div>
-            <a href={`/api/roku/films/${f.slug}`} target="_blank">Feed ↗</a>
+            <div className="filmActions">
+              <button type="button" onClick={() => editFilm(f)}>Edit</button>
+              <a href={`/api/roku/films/${f.slug}`} target="_blank">Feed ↗</a>
+            </div>
           </article>)}
         </div>
       </section>
