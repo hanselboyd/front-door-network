@@ -93,10 +93,17 @@ export default function AdminPage() {
         headers: { "x-admin-key": key },
         cache: "no-store",
       });
+
       const text = await res.text();
       let body: any = null;
-      try { body = text ? JSON.parse(text) : null; } catch {}
+      if (text) {
+        try { body = JSON.parse(text); } catch {
+          throw new Error(`Bunny API returned non-JSON data (HTTP ${res.status}).`);
+        }
+      }
+
       if (!res.ok) throw new Error(body?.error || text || `Bunny API failed (HTTP ${res.status})`);
+      if (!body) throw new Error("Bunny API returned an empty response.");
       setBunnyVideos(Array.isArray(body?.items) ? body.items : []);
       setBunnyStatus(`Connected · ${body?.count ?? 0} videos`);
     } catch (err) {
@@ -118,10 +125,17 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json", "x-admin-key": adminKey },
         body: JSON.stringify({ title }),
       });
+
       const text = await res.text();
       let body: any = null;
-      try { body = text ? JSON.parse(text) : null; } catch {}
+      if (text) {
+        try { body = JSON.parse(text); } catch {
+          throw new Error(`Bunny create returned non-JSON data (HTTP ${res.status}).`);
+        }
+      }
+
       if (!res.ok) throw new Error(body?.error || text || "Unable to create Bunny video.");
+      if (!body) throw new Error("Bunny create returned an empty response.");
       setMessage(`Bunny video record created for "${title}". Upload the media file in Bunny, then refresh Bunny videos here.`);
       await loadBunny();
       setSelectedBunny(body.guid || "");
