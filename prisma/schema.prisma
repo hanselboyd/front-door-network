@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PublishStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model Creator {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  bio          String?
+  imageUrl     String?
+  websiteUrl   String?
+  acnCreatorId String?
+  films        Film[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Shelf {
+  id          String      @id @default(cuid())
+  name        String
+  slug        String      @unique
+  description String?
+  sortOrder   Int         @default(0)
+  isActive    Boolean     @default(true)
+  placements ShelfFilm[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Film {
+  id               String        @id @default(cuid())
+  title            String
+  slug             String        @unique
+  synopsis         String
+  genre            String?
+  releaseYear      Int?
+  runtimeSeconds   Int?
+  rating           String?
+  posterUrl        String?
+  landscapeUrl     String?
+  trailerUrl       String?
+  bunnyVideoId     String?
+  bunnyPlaybackUrl String?
+  captionsUrl      String?
+  aiTools          String[]
+  acnFilmId        String?
+  featured         Boolean       @default(false)
+  rokuEnabled      Boolean       @default(false)
+  status           PublishStatus @default(DRAFT)
+  creatorId        String?
+  creator          Creator?      @relation(fields: [creatorId], references: [id], onDelete: SetNull)
+  shelfPlacements  ShelfFilm[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+model ShelfFilm {
+  shelfId   String
+  filmId    String
+  sortOrder Int    @default(0)
+  shelf     Shelf   @relation(fields: [shelfId], references: [id], onDelete: Cascade)
+  film      Film    @relation(fields: [filmId], references: [id], onDelete: Cascade)
+
+  @@id([shelfId, filmId])
+  @@index([shelfId, sortOrder])
+}
