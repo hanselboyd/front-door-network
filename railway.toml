@@ -3,8 +3,7 @@ builder = "RAILPACK"
 buildCommand = "npm run build"
 
 [deploy]
-startCommand = "npm run start"
-preDeployCommand = "npx prisma db push && npm run prisma:seed"
+startCommand = "npx prisma db push && npm run prisma:seed && npm run start"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
