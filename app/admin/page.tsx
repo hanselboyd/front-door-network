@@ -110,9 +110,17 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json", "x-admin-key": adminKey },
         body: JSON.stringify(payload),
       });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body?.error ? JSON.stringify(body.error) : "Unable to create film.");
-      setMessage(`Created "${body.title}" successfully.`);
+
+      const responseText = await res.text();
+      let body: any = null;
+      try { body = responseText ? JSON.parse(responseText) : null; } catch {}
+
+      if (!res.ok) {
+        const detail = body?.error || responseText || `Unable to create film (HTTP ${res.status}).`;
+        throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+      }
+
+      setMessage(body?.title ? `Created "${body.title}" successfully.` : "Film saved successfully.");
       e.currentTarget.reset();
       await loadData();
     } catch (err) {
