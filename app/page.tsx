@@ -33,7 +33,7 @@ export default async function Home() {
       <div className="navlinks">
         <a href="/watch">WATCH</a>
         <a href="#shelves">FILMS</a>
-        <a href="#creators">CREATORS</a>
+        <a href="/creators/portal">CREATORS</a>
         <a className="navSubmit" href="/submit">SUBMIT</a>
         <a href="#about">ABOUT</a>
       </div>
