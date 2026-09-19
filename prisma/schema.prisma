@@ -132,3 +132,28 @@ model CreatorSession {
   @@index([creatorAccountId])
   @@index([expiresAt])
 }
+
+
+enum SponsorInquiryStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  CLOSED
+}
+
+model SponsorInquiry {
+  id          String               @id @default(cuid())
+  name        String
+  company     String
+  email       String
+  websiteUrl  String?
+  budget      String?
+  interest    String
+  message     String?
+  status      SponsorInquiryStatus @default(NEW)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([status, createdAt])
+  @@index([email])
+}
