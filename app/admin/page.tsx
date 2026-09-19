@@ -477,7 +477,7 @@ export default function AdminPage() {
   return <main className="controlRoom">
     <header className="adminHero">
       <div>
-        <div className="eyebrow">FRONT DOOR CONTROL ROOM</div>
+        <div className="eyebrow">FRONT DOOR CONTROL ROOM · <a href="/admin/submissions">SUBMISSIONS</a></div>
         <h1>Program the network.</h1>
         <p>Add titles, connect Bunny media, assign shelves, and publish directly into the Roku feed.</p>
       </div>
