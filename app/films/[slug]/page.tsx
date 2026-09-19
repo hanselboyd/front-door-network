@@ -66,6 +66,6 @@ export default async function FilmPage({ params }: { params: Promise<{ slug: str
       </section>
     </main>
 
-    <footer className="footer filmFooter"><a href="/watch">← BACK TO WATCH</a></footer>
+    <footer className="footer filmFooter publicFooter"><a href="/watch">← BACK TO WATCH</a><a href="/sponsor">SPONSOR / PARTNER</a></footer>
   </div>;
 }
