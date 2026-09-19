@@ -32,9 +32,14 @@ export async function POST(req: Request) {
     const { company, ...data } = parsed.data;
     if (company) return NextResponse.json({ success: true }, { status: 201 });
 
+    const normalizedEmail = data.email.trim().toLowerCase();
+    const account = await db.creatorAccount.findUnique({ where: { email: normalizedEmail } });
+
     const submission = await db.submission.create({
       data: {
         ...data,
+        email: normalizedEmail,
+        creatorAccountId: account?.id || null,
         trailerUrl: data.trailerUrl || null,
         websiteUrl: data.websiteUrl || null,
         socialUrl: data.socialUrl || null,
