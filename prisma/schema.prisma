@@ -75,3 +75,34 @@ model ShelfFilm {
   @@id([shelfId, filmId])
   @@index([shelfId, sortOrder])
 }
+
+
+enum SubmissionStatus {
+  NEW
+  REVIEWING
+  ACCEPTED
+  DECLINED
+}
+
+model Submission {
+  id                String           @id @default(cuid())
+  creatorName       String
+  email             String
+  filmTitle         String
+  synopsis          String
+  filmUrl           String
+  trailerUrl        String?
+  websiteUrl        String?
+  socialUrl         String?
+  acnFilmId         String?
+  aiTools           String[]
+  rightsConfirmed   Boolean
+  aiNativeConfirmed Boolean
+  status            SubmissionStatus @default(NEW)
+  notes             String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([status, createdAt])
+  @@index([email])
+}
