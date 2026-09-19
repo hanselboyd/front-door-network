@@ -39,6 +39,6 @@ export default async function WatchPage() {
         </a>)}
       </div>
     </main>
-    <footer className="footer">FRONT DOOR NETWORK · AI CINEMA ON DEMAND</footer>
+    <footer className="footer publicFooter"><span>FRONT DOOR NETWORK · AI CINEMA ON DEMAND</span><a href="/sponsor">SPONSOR / PARTNER</a></footer>
   </div>;
 }
