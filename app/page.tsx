@@ -34,7 +34,7 @@ export default async function Home() {
         <a href="/watch">WATCH</a>
         <a href="#shelves">FILMS</a>
         <a href="#creators">CREATORS</a>
-        <a href="#submit">SUBMIT</a>
+        <a className="navSubmit" href="/submit">SUBMIT</a>
         <a href="#about">ABOUT</a>
       </div>
     </nav>
@@ -102,7 +102,8 @@ export default async function Home() {
 
       <section className="section" id="submit">
         <div className="sectionHead"><h2>Bring Your Film to Front Door</h2><span>Curated distribution</span></div>
-        <p className="sectionCopy">Front Door is building a selective catalog of AI-native cinema for web and Roku distribution. Submission intake will connect film metadata, creator identity, rights confirmation, artwork, captions and programming placement.</p>
+        <p className="sectionCopy">Front Door is building a selective catalog of AI-native cinema for web and Roku distribution. Submission intake connects film metadata, creator identity, rights confirmation, artwork, captions and programming placement.</p>
+        <a className="btn submitCta" href="/submit">SUBMIT YOUR FILM →</a>
       </section>
     </main>
 
