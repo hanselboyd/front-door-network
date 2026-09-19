@@ -188,6 +188,6 @@ export default function CreatorPortalPage() {
       </section>
     </main>
 
-    <footer className="footer">FRONT DOOR NETWORK · CREATOR PORTAL</footer>
+    <footer className="footer publicFooter"><span>FRONT DOOR NETWORK · CREATOR PORTAL</span><a href="/sponsor">SPONSOR / PARTNER</a></footer>
   </div>;
 }
