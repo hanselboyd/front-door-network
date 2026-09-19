@@ -100,6 +100,12 @@ export default async function Home() {
         <p className="sectionCopy">Front Door is a curated distribution layer for AI-native filmmakers. Films connect creator identity, presentation metadata, Bunny Stream delivery and Roku programming in one network.</p>
       </section>
 
+      <section className="section sponsorTease">
+        <div className="sectionHead"><h2>Partner With Front Door</h2><span>Brand partnerships</span></div>
+        <p className="sectionCopy">Support the emerging AI cinema ecosystem through network, shelf, premiere, creator, and event partnerships.</p>
+        <a className="ghostBtn sponsorHomeCta" href="/sponsor">EXPLORE SPONSORSHIPS →</a>
+      </section>
+
       <section className="section" id="submit">
         <div className="sectionHead"><h2>Bring Your Film to Front Door</h2><span>Curated distribution</span></div>
         <p className="sectionCopy">Front Door is building a selective catalog of AI-native cinema for web and Roku distribution. Submission intake connects film metadata, creator identity, rights confirmation, artwork, captions and programming placement.</p>
@@ -107,6 +113,6 @@ export default async function Home() {
       </section>
     </main>
 
-    <footer className="footer" id="about">FRONT DOOR NETWORK · THE FRONT DOOR TO AI CINEMA</footer>
+    <footer className="footer publicFooter" id="about"><span>FRONT DOOR NETWORK · THE FRONT DOOR TO AI CINEMA</span><a href="/sponsor">SPONSOR / PARTNER</a></footer>
   </div>;
 }
