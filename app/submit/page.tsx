@@ -52,7 +52,7 @@ export default function SubmitPage() {
   return <div className="wrap">
     <nav className="nav">
       <a className="brand" href="/">FRONT DOOR</a>
-      <div className="navlinks"><a href="/watch">WATCH</a><a href="/">NETWORK</a><a href="/submit">SUBMIT</a></div>
+      <div className="navlinks"><a href="/watch">WATCH</a><a href="/">NETWORK</a><a href="/creators/portal">CREATOR PORTAL</a><a href="/submit">SUBMIT</a></div>
     </nav>
 
     <main className="submitPage">
