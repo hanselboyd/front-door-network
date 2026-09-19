@@ -111,6 +111,6 @@ export default function SubmitPage() {
       </div>
     </main>
 
-    <footer className="footer">FRONT DOOR NETWORK · FILMMAKER INTAKE</footer>
+    <footer className="footer publicFooter"><span>FRONT DOOR NETWORK · FILMMAKER INTAKE</span><a href="/sponsor">SPONSOR / PARTNER</a></footer>
   </div>;
 }
